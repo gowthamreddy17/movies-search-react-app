@@ -274,3 +274,35 @@ function WatchedMovie({ movie }) {
 // **Why it's useful:**
 // - **Reusable Components**: Components can be used across different parts of your app.
 // - **Avoid Prop Drilling**: You can pass data directly to the components that need it, avoiding the need to pass props through multiple layers.
+
+//Ex: import React from 'react';
+
+// Parent component (App)
+// function App() {
+//   const theme = 'dark';  // theme to pass down
+
+//   return (
+//     <Layout>
+//       <Content>
+//         <Card theme={theme} />  {/* Pass the theme directly to Card */}
+//       </Content>
+//     </Layout>
+//   );
+// }
+
+// // Layout component (intermediate component)
+// function Layout({ children }) {
+//   return <div className="layout">{children}</div>;
+// }
+
+// // Content component (intermediate component)
+// function Content({ children }) {
+//   return <div className="content">{children}</div>;
+// }
+
+// // Card component (leaf component)
+// function Card({ theme }) {
+//   return <div className={`card ${theme}`}>Card Content</div>;  {/* Apply theme to card */}
+// }
+
+// export default App;
