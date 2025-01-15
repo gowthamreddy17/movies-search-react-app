@@ -1,8 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import StarRating from "./StarRating.js";
-import { useMovies } from "./useMovies.js";
-import { useLocalStorageState } from "./useLocalStorageState.js";
-import { useKey } from "./useKey.js";
 
 // const tempMovieData = [
 //   {
@@ -51,9 +48,9 @@ import { useKey } from "./useKey.js";
 //   },
 // ];
 // /**
-//  * Compnnents , functions Hooks
-//  * @param {*} arr
-//  * @returns
+//  * Compnnents , functions Hooks 
+//  * @param {*} arr 
+//  * @returns 
 //  */
 const average = (arr) =>
   arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
@@ -62,17 +59,14 @@ const KEY = "ce78686c";
 // const tempQuery = "interstellar";
 
 export default function App() {
+  // const stu =[{age:20},{age:20}];
+  const [movies, setMovies] = useState([]);
+  const [watched, setWatched] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(null);
-  const { movies, isLoading, error } = useMovies(query, handleCloseMovie);
-
-  const [watched, setWatched] = useLocalStorageState([], "watched");
-
-  // const [watched, setWatched] = useState([]);
-  // const [watched, setWatched] = useState(function () {
-  //   const storedValue = localStorage.getItem("watched");
-  //   return JSON.parse(storedValue);
-  // });
 
   /*
   useEffect(function () {
@@ -109,17 +103,62 @@ export default function App() {
 
   function handleAddWatched(movie) {
     setWatched((watched) => [...watched, movie]);
-
-    // localStorage.setItem("watched", JSON.stringify([...watched, movie]));
   }
 
   function handleDeleteWatched(id) {
     setWatched((watched) => watched.filter((movie) => movie.imdbID !== id));
   }
 
-  // useEffect(() => {
-  //   localStorage.setItem("watched", JSON.stringify(watched));
-  // }, [watched]);
+  useEffect(() => {
+    const controller = new AbortController(); //browser API
+
+    async function fetchMovies() {
+      try {
+        setIsLoading(true);
+        setError(""); //resetting error - before fetching the data
+        const res = await fetch(
+          ` http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
+          { signal: controller.signal }
+        );
+
+        if (!res.ok)
+          throw new Error("Something went wrong while fetching the movie data");
+
+        const data = await res.json();
+
+        if (data.Response === "False") throw new Error("Movie not found");
+
+        setMovies(data.Search);
+        setError("");
+
+        //setting state happens asynchronously not immediately after we set
+        // console.log(data);
+        // setIsLoading(false);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.log(err.message);
+          setError(err.message);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    //removing error when there is no search query or empty string in the state or less than 3 no request made
+    if (!query.length || query.length < 3) {
+      setMovies([]);
+      setError("");
+      return;
+    }
+
+    handleCloseMovie();
+    fetchMovies();
+
+    //clean up function - to stop previous request when new fetch request is made
+    return function () {
+      controller.abort();
+    };
+  }, [query]);
 
   return (
     <>
@@ -192,47 +231,6 @@ function Logo() {
 }
 
 function Search({ query, setQuery }) {
-  // useEffect(function () {
-  //   const el = document.querySelector(".search");
-  //   // console.log(el);
-  //   el.focus();
-  // }, []);
-
-  // // using a ref in react happens in 3 steps - create a ref , use that ref as a prop in the element you need select, use that using useEffect hook
-  //in the cureent property what ever we store in the ref will get stored
-
-  // useEffect(
-  //   function () {
-  //     //this effect runs after only the dom has loaded - which means the component has intially mounted on screen
-
-  //     // console.log(inputEl.current)
-
-  //     function callBack(e) {
-  //       //checking for which dom element is currently active
-  //       if (document.activeElement === inputEl.current) return; //if serch is already active dont remove query and no need to fucus it because it is already active
-
-  //       if (e.code === "Enter") {
-  //         inputEl.current.focus();
-  //         setQuery("");
-  //       }
-  //     }
-
-  //     document.addEventListener("keydown", callBack);
-
-  //     return document.addEventListener("keydown", callBack);
-  //   },
-  //   [setQuery]
-  // ); //eslint warned because setQuery fn is a prop tho this component. Therefore when we using it in the effect we need also to declare in the dependency array. the function( setQuery ) will not change but still the react need it in dependency array.
-
-  const inputEl = useRef(null); //null is intial for dom element
-
-  useKey("Enter", function callBack() {
-    if (document.activeElement === inputEl.current) return;
-
-    inputEl.current.focus();
-    setQuery("");
-  });
-
   return (
     <input
       className="search"
@@ -241,7 +239,6 @@ function Search({ query, setQuery }) {
       placeholder="Search movies..."
       value={query}
       onChange={(e) => setQuery(e.target.value)}
-      ref={inputEl} // these two are connected in a declarative way no need for query selection manually
     />
   );
 }
@@ -337,17 +334,6 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
   const [isLoading, setIsLoading] = useState(false);
   const [userRating, setUserRating] = useState("");
 
-  const countRef = useRef(0); //count the rating clicked how many times
-  // let count = 0; // the previuos value is not persisted across renders in normal variable
-
-  useEffect(
-    function () {
-      if (userRating) countRef.current++;
-      // if (userRating) count++;
-    },
-    [userRating]
-  );
-
   const isWatched = watched.map((movie) => movie.imdbID).includes(selectedId);
   // console.log(isWatched);
 
@@ -378,29 +364,25 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
       imdbRating: Number(imdbRating),
       runtime: Number(runtime.split(" ").at(0)),
       userRating,
-      countRatingDecisions: countRef.current,
-      // count: count,
     };
     onAddWatched(newWatchedMovie);
     onCloseMovie();
   }
 
-  useKey("Escape", onCloseMovie);
+  useEffect(() => {
+    function callBack(e) {
+      if (e.code === "Escape") {
+        onCloseMovie();
+        // console.log("closing");
+      }
+    }
 
-  // useEffect(() => {
-  //   function callBack(e) {
-  //     if (e.code === "Escape") {
-  //       onCloseMovie();
-  //       // console.log("closing");
-  //     }
-  //   }
-
-  //   document.addEventListener("keydown", callBack);
-  //   //clean up function
-  //   return function () {
-  //     document.removeEventListener("keydown", callBack);
-  //   };
-  // }, [onCloseMovie]);
+    document.addEventListener("keydown", callBack);
+    //clean up function
+    return function () {
+      document.removeEventListener("keydown", callBack);
+    };
+  }, [onCloseMovie]);
 
   useEffect(() => {
     async function getMovieDetails() {
@@ -565,19 +547,3 @@ function WatchedMovie({ movie, onDeleteWatched }) {
 // **Why it's useful:**
 // - **Reusable Components**: Components can be used across different parts of your app.
 // - **Avoid Prop Drilling**: You can pass data directly to the components that need it, avoiding the need to pass props through multiple layers.
-
-// Definition: State in React is an object or variable that holds data that can change over time within a component. When the state changes, React re-renders the component to reflect the updated data, ensuring the UI is always in sync with the current state.
-// Key Point: State is used for data that influences the rendering of the component and triggers UI updates when modified.
-
-// Definition: A ref (short for reference) in React provides a way to directly access and interact with a DOM element or a component instance. Unlike state, refs do not trigger re-renders when modified, making them suitable for tasks like managing focus, measuring elements, or interacting with third-party libraries.
-//Data is persisted across the renders.
-//mutate the ref using the useEffect only (which will don't cause re-render) but not in any render logic (like jsx which will cause re-render)
-//ref is just a box it means we can store any type of value.
-// Key Point: Refs are useful when you need to interact with the DOM or store mutable values that don't affect rendering.
-
-//Note:
-// useState() - previous value persisted across renders + rerenders when state value is updated
-//useRef() - previous value persisted + no rerenders when value updated
-// normal variable - no re-render or dont persist or store previous value
-
-//custom hooks (for reusability)

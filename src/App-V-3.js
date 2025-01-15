@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import StarRating from "./StarRating.js";
-import { useMovies } from "./useMovies.js";
-import { useLocalStorageState } from "./useLocalStorageState.js";
-import { useKey } from "./useKey.js";
+
 
 // const tempMovieData = [
 //   {
@@ -64,15 +62,15 @@ const KEY = "ce78686c";
 export default function App() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(null);
-  const { movies, isLoading, error } = useMovies(query, handleCloseMovie);
-
-  const [watched, setWatched] = useLocalStorageState([], "watched");
+  const [movies, setMovies] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // const [watched, setWatched] = useState([]);
-  // const [watched, setWatched] = useState(function () {
-  //   const storedValue = localStorage.getItem("watched");
-  //   return JSON.parse(storedValue);
-  // });
+  const [watched, setWatched] = useState(function () {
+    const storedValue = localStorage.getItem("watched");
+    return JSON.parse(storedValue);
+  });
 
   /*
   useEffect(function () {
@@ -117,9 +115,60 @@ export default function App() {
     setWatched((watched) => watched.filter((movie) => movie.imdbID !== id));
   }
 
-  // useEffect(() => {
-  //   localStorage.setItem("watched", JSON.stringify(watched));
-  // }, [watched]);
+  useEffect(() => {
+    localStorage.setItem("watched", JSON.stringify(watched));
+  }, [watched]);
+
+  useEffect(() => {
+    const controller = new AbortController(); //browser API
+
+    async function fetchMovies() {
+      try {
+        setIsLoading(true);
+        setError(""); //resetting error - before fetching the data
+        const res = await fetch(
+          ` http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
+          { signal: controller.signal }
+        );
+
+        if (!res.ok)
+          throw new Error("Something went wrong while fetching the movie data");
+
+        const data = await res.json();
+
+        if (data.Response === "False") throw new Error("Movie not found");
+
+        setMovies(data.Search);
+        setError("");
+
+        //setting state happens asynchronously not immediately after we set
+        // console.log(data);
+        // setIsLoading(false);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.log(err.message);
+          setError(err.message);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    //removing error when there is no search query or empty string in the state or less than 3 no request made
+    if (!query.length || query.length < 3) {
+      setMovies([]);
+      setError("");
+      return;
+    }
+
+    handleCloseMovie();
+    fetchMovies();
+
+    //clean up function - to stop previous request when new fetch request is made
+    return function () {
+      controller.abort();
+    };
+  }, [query]);
 
   return (
     <>
@@ -199,39 +248,32 @@ function Search({ query, setQuery }) {
   // }, []);
 
   // // using a ref in react happens in 3 steps - create a ref , use that ref as a prop in the element you need select, use that using useEffect hook
-  //in the cureent property what ever we store in the ref will get stored
+  //in the current property what ever we store in the ref will get stored
 
-  // useEffect(
-  //   function () {
-  //     //this effect runs after only the dom has loaded - which means the component has intially mounted on screen
+  useEffect(
+    function () {
+      //this effect runs after only the dom has loaded - which means the component has intially mounted on screen
 
-  //     // console.log(inputEl.current)
+      // console.log(inputEl.current)
 
-  //     function callBack(e) {
-  //       //checking for which dom element is currently active
-  //       if (document.activeElement === inputEl.current) return; //if serch is already active dont remove query and no need to fucus it because it is already active
+      function callBack(e) {
+        //checking for which dom element is currently active
+        if (document.activeElement === inputEl.current) return; //if serch is already active dont remove query and no need to fucus it because it is already active
 
-  //       if (e.code === "Enter") {
-  //         inputEl.current.focus();
-  //         setQuery("");
-  //       }
-  //     }
+        if (e.code === "Enter") {
+          inputEl.current.focus();
+          setQuery("");
+        }
+      }
 
-  //     document.addEventListener("keydown", callBack);
+      document.addEventListener("keydown", callBack);
 
-  //     return document.addEventListener("keydown", callBack);
-  //   },
-  //   [setQuery]
-  // ); //eslint warned because setQuery fn is a prop tho this component. Therefore when we using it in the effect we need also to declare in the dependency array. the function( setQuery ) will not change but still the react need it in dependency array.
+      return document.addEventListener("keydown", callBack);
+    },
+    [setQuery]
+  ); //eslint warned because setQuery fn is a prop tho this component. Therefore when we using it in the effect we need also to declare in the dependency array. the function( setQuery ) will not change but still the react need it in dependency array.
 
   const inputEl = useRef(null); //null is intial for dom element
-
-  useKey("Enter", function callBack() {
-    if (document.activeElement === inputEl.current) return;
-
-    inputEl.current.focus();
-    setQuery("");
-  });
 
   return (
     <input
@@ -384,8 +426,6 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
     onAddWatched(newWatchedMovie);
     onCloseMovie();
   }
-
-  useKey("Escape", onCloseMovie);
 
   // useEffect(() => {
   //   function callBack(e) {
