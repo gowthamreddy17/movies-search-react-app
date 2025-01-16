@@ -3,7 +3,7 @@ import { useEffect } from "react";
 export function useKey(key, action) {
   useEffect(() => {
     function callBack(e) {
-      if (e.code && e.code.toLowerCase() === key.toLowerCase()) {
+      if (e.code && e.code.toLowerCase() === key.toLowerCase()) { 
         action();
         // onCloseMovie();
       }
